@@ -32,6 +32,21 @@ app.use('/api/seller', sellerRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/orders', orderRoutes);
 
+app.get('/', (req, res) => {
+  res.json({
+    message: '🚀 Welcome to Riwaaya Threads Node.js API Backend',
+    status: 'Active',
+    health: '/api/health',
+    endpoints: [
+      '/api/auth',
+      '/api/products',
+      '/api/seller',
+      '/api/admin',
+      '/api/orders'
+    ]
+  });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', service: 'Riwaaya Threads Node.js API', time: new Date() });
 });
