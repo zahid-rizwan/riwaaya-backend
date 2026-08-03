@@ -201,14 +201,17 @@ export const uploadImage = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: 'No file uploaded' });
     }
     
-    // Construct absolute public URL
-    const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+    let fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+    if (req.file.buffer) {
+      fileUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    }
     
     res.status(200).json({
       url: fileUrl,
-      filename: req.file.filename
+      filename: req.file.filename || req.file.originalname
     });
   } catch (error: any) {
+    console.error('Upload image error:', error);
     res.status(500).json({ message: error.message || 'Image upload failed' });
   }
 };
@@ -220,12 +223,18 @@ export const uploadImages = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: 'No files uploaded' });
     }
 
-    const urls = files.map(file => `${req.protocol}://${req.get('host')}/uploads/${file.filename}`);
+    const urls = files.map(file => {
+      if (file.buffer) {
+        return `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+      }
+      return `${req.protocol}://${req.get('host')}/uploads/${file.filename}`;
+    });
 
     res.status(200).json({
       urls: urls
     });
   } catch (error: any) {
+    console.error('Upload images error:', error);
     res.status(500).json({ message: error.message || 'Images upload failed' });
   }
 };
