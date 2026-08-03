@@ -8,7 +8,7 @@
     "tag": "suits",
     "badge": "New",
     "images": [
-      "http://localhost:5000/uploads/1785696104342-165413105.png"
+      "/assets/1540aab590cd7d478ad01cdb1a615d469ef2a808.png"
     ],
     "description": "This is the description",
     "status": "PENDING",

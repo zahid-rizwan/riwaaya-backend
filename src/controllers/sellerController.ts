@@ -27,7 +27,14 @@ export const getSellerStats = async (req: AuthRequest, res: Response) => {
 export const getSellerProducts = async (req: AuthRequest, res: Response) => {
   try {
     const products = productStore.getAll();
-    res.json(products);
+    const host = `${req.protocol}://${req.get('host')}`;
+    const sanitized = products.map(p => ({
+      ...p,
+      images: Array.isArray(p.images)
+        ? p.images.map(img => typeof img === 'string' ? img.replace(/^http:\/\/localhost:\d+/, host) : img)
+        : p.images
+    }));
+    res.json(sanitized);
   } catch (error: any) {
     res.json(productStore.getAll());
   }

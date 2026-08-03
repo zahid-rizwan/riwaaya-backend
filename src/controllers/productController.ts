@@ -3,6 +3,18 @@ import Product from '../models/Product';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { productStore, ProductItem } from '../store/productStore';
 
+const sanitizeProductImages = (products: any[], req: Request) => {
+  const host = `${req.protocol}://${req.get('host')}`;
+  return products.map(p => {
+    if (Array.isArray(p.images)) {
+      p.images = p.images.map((img: string) =>
+        typeof img === 'string' ? img.replace(/^http:\/\/localhost:\d+/, host) : img
+      );
+    }
+    return p;
+  });
+};
+
 export const getProducts = async (req: Request, res: Response) => {
   try {
     const { tag, search, status } = req.query;
@@ -60,9 +72,9 @@ export const getProducts = async (req: Request, res: Response) => {
       allProducts = allProducts.filter(p => p.name?.toLowerCase().includes(q));
     }
 
-    res.json(allProducts);
+    res.json(sanitizeProductImages(allProducts, req));
   } catch (error: any) {
-    res.json(productStore.getAll());
+    res.json(sanitizeProductImages(productStore.getAll(), req));
   }
 };
 
