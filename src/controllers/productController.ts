@@ -175,9 +175,8 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
     const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true }).catch(() => null);
     if (product) return res.json(product);
 
-    const memItem = productStore.findById(req.params.id);
+    const memItem = productStore.update(req.params.id, req.body);
     if (memItem) {
-      Object.assign(memItem, req.body);
       return res.json(memItem);
     }
 
@@ -195,3 +194,40 @@ export const deleteProduct = async (req: AuthRequest, res: Response) => {
     res.json({ message: 'Product removed' });
   }
 };
+
+export const uploadImage = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+    
+    // Construct absolute public URL
+    const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+    
+    res.status(200).json({
+      url: fileUrl,
+      filename: req.file.filename
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message || 'Image upload failed' });
+  }
+};
+
+export const uploadImages = async (req: AuthRequest, res: Response) => {
+  try {
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
+      return res.status(400).json({ message: 'No files uploaded' });
+    }
+
+    const urls = files.map(file => `${req.protocol}://${req.get('host')}/uploads/${file.filename}`);
+
+    res.status(200).json({
+      urls: urls
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message || 'Images upload failed' });
+  }
+};
+
+

@@ -169,6 +169,15 @@ class ProductStore {
     }
     return prod;
   }
+
+  public update(id: string, updates: Partial<ProductItem>): ProductItem | undefined {
+    const prod = this.findById(id);
+    if (prod) {
+      Object.assign(prod, updates);
+      this.saveToFile();
+    }
+    return prod;
+  }
 }
 
 export const productStore = new ProductStore();
