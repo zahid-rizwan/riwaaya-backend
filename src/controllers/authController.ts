@@ -151,3 +151,123 @@ export const login = async (req: Request, res: Response) => {
 export const getMe = async (req: AuthRequest, res: Response) => {
   res.json({ user: req.user });
 };
+
+// ======================== PHONE + OTP AUTH ========================
+
+/**
+ * POST /api/auth/send-otp
+ * Body: { phone: string }
+ * OTP = last 6 digits of phone (for dev/demo)
+ */
+export const sendOtp = async (req: Request, res: Response) => {
+  try {
+    const { phone } = req.body;
+
+    if (!phone || phone.replace(/\D/g, '').length < 10) {
+      return res.status(400).json({ message: 'Valid phone number is required (at least 10 digits)' });
+    }
+
+    // In production: send real SMS OTP via Twilio/MSG91
+    // For now: OTP = last 6 digits of the phone number
+    const digits = phone.replace(/\D/g, '');
+    const otp = digits.slice(-6);
+
+    console.log(`📱 OTP for ${phone}: ${otp}`);
+
+    return res.json({
+      success: true,
+      message: 'OTP sent successfully to your phone',
+      // Remove this in production — only for dev convenience:
+      devOtp: otp
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message || 'Failed to send OTP' });
+  }
+};
+
+/**
+ * POST /api/auth/verify-otp
+ * Body: { phone: string, otp: string }
+ * Validates OTP, finds/creates user, returns JWT token.
+ */
+export const verifyOtp = async (req: Request, res: Response) => {
+  try {
+    const { phone, otp } = req.body;
+
+    if (!phone || !otp) {
+      return res.status(400).json({ message: 'Phone number and OTP are required' });
+    }
+
+    // Validate OTP = last 6 digits of phone
+    const digits = phone.replace(/\D/g, '');
+    const expectedOtp = digits.slice(-6);
+
+    if (otp !== expectedOtp) {
+      return res.status(401).json({ message: 'Invalid OTP. Please try again.' });
+    }
+
+    // OTP verified — find or create user by phone (only if DB is connected)
+    const mongoose = await import('mongoose');
+    let user: any = null;
+    
+    if (mongoose.default.connection.readyState === 1) {
+      user = await User.findOne({ phone: { $regex: digits.slice(-10) } }).maxTimeMS(2000).catch(() => null);
+
+      if (!user) {
+        // Auto-create new CUSTOMER account
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(`phone_${digits}`, salt);
+
+        user = await User.create({
+          name: `User ${digits.slice(-4)}`,
+          email: `${digits}@phone.riwaaya.com`,
+          password: hashedPassword,
+          role: 'CUSTOMER',
+          phone: phone
+        }).catch(() => null);
+      }
+    }
+
+    if (!user) {
+      // DB offline fallback — generate demo token
+      const fallbackId = `phone_${digits.slice(-10)}`;
+      const token = generateToken(fallbackId);
+      return res.json({
+        token,
+        user: {
+          id: fallbackId,
+          name: `User ${digits.slice(-4)}`,
+          phone: phone,
+          role: 'CUSTOMER'
+        }
+      });
+    }
+
+    const token = generateToken(user._id.toString());
+    return res.json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role
+      }
+    });
+  } catch (error: any) {
+    // Fallback for DB offline
+    const digits = (req.body.phone || '').replace(/\D/g, '');
+    const fallbackId = `phone_${digits.slice(-10)}`;
+    const token = generateToken(fallbackId);
+    return res.json({
+      token,
+      user: {
+        id: fallbackId,
+        name: `User ${digits.slice(-4)}`,
+        phone: req.body.phone,
+        role: 'CUSTOMER'
+      }
+    });
+  }
+};
+

@@ -19,6 +19,8 @@ export interface ProductItem {
   badge?: string;
   images: string[];
   description?: string;
+  materials?: string;
+  shipping?: string;
   status: string;
   variants?: ProductVariant[];
   createdAt: string;

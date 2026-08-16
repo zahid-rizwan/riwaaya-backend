@@ -1,86 +1,93 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import User from '../models/User';
 import Product from '../models/Product';
 import Order from '../models/Order';
 import { productStore } from '../store/productStore';
+import { sendResponse } from '../utils/apiResponse';
+import { ApiError } from '../utils/ApiError';
 
-export const getAdminDashboardStats = async (req: Request, res: Response) => {
+export const getAdminDashboardStats = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const allProds = productStore.getAll();
     const pendingProducts = allProds.filter(p => p.status === 'PENDING').length;
     const approvedProducts = allProds.filter(p => p.status === 'APPROVED').length;
 
-    res.json({
+    const stats = {
       totalPlatformRevenue: 184500,
       totalSellers: 4,
       pendingSellers: 1,
-      totalProducts: approvedProducts || allProds.length,
+      totalProducts: approvedProducts || allProds.length || 14,
       pendingProducts: pendingProducts,
       totalOrders: 8
-    });
-  } catch (error: any) {
-    res.json({
-      totalPlatformRevenue: 184500,
-      totalSellers: 4,
-      pendingSellers: 1,
-      totalProducts: 14,
-      pendingProducts: 1,
-      totalOrders: 8
-    });
+    };
+
+    return sendResponse(res, 200, 'Admin metrics retrieved successfully', stats);
+  } catch (error) {
+    return next(error);
   }
 };
 
-export const getAllSellers = async (req: Request, res: Response) => {
+export const getAllSellers = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const sellers = await User.find({ role: 'SELLER' }).sort({ createdAt: -1 }).catch(() => []);
-    res.json(sellers);
-  } catch (error: any) {
-    res.json([]);
+    const sellers = await User.find({ role: 'SELLER' }).sort({ createdAt: -1 });
+    return sendResponse(res, 200, 'Sellers fetched successfully', sellers);
+  } catch (error) {
+    return next(error);
   }
 };
 
-export const approveSeller = async (req: Request, res: Response) => {
+export const approveSeller = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { isApproved } = req.body;
+    const { sellerId } = req.params;
+
+    if (!sellerId) {
+      throw new ApiError(400, 'Seller ID is required');
+    }
+
     const seller = await User.findByIdAndUpdate(
-      req.params.sellerId,
+      sellerId,
       { isSellerApproved: isApproved },
       { new: true }
-    ).catch(() => null);
+    );
 
-    res.json(seller || { _id: req.params.sellerId, isSellerApproved: isApproved });
-  } catch (error: any) {
-    res.json({ _id: req.params.sellerId, isSellerApproved: true });
+    const result = seller || { _id: sellerId, isSellerApproved: isApproved };
+    return sendResponse(res, 200, `Seller status set to ${isApproved ? 'Approved' : 'Pending'}`, result);
+  } catch (error) {
+    return next(error);
   }
 };
 
-export const approveProduct = async (req: Request, res: Response) => {
+export const approveProduct = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { status } = req.body;
-    const prodId = req.params.productId;
+    const { productId } = req.params;
     const newStatus = status || 'APPROVED';
 
+    if (!productId) {
+      throw new ApiError(400, 'Product ID is required');
+    }
+
     // Update in memory/JSON store
-    productStore.updateStatus(prodId, newStatus);
+    productStore.updateStatus(productId, newStatus);
 
     // Update in MongoDB Atlas database
-    await Product.findByIdAndUpdate(prodId, { status: newStatus }, { new: true }).catch(() => null);
+    await Product.findByIdAndUpdate(productId, { status: newStatus }, { new: true }).catch(() => null);
 
-    res.json({ _id: prodId, status: newStatus, message: 'Product status updated' });
-  } catch (error: any) {
-    res.json({ message: 'Product status updated' });
+    return sendResponse(res, 200, 'Product status updated successfully', { _id: productId, status: newStatus });
+  } catch (error) {
+    return next(error);
   }
 };
 
-export const getAllOrders = async (req: Request, res: Response) => {
+export const getAllOrders = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orders = await Order.find()
       .populate('customer', 'name email phone')
-      .sort({ createdAt: -1 })
-      .catch(() => []);
+      .sort({ createdAt: -1 });
 
-    res.json(orders);
-  } catch (error: any) {
-    res.json([]);
+    return sendResponse(res, 200, 'Orders fetched successfully', orders);
+  } catch (error) {
+    return next(error);
   }
 };

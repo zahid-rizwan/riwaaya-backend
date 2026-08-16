@@ -7,6 +7,8 @@ export interface IOrderItem {
   price: number;
   quantity: number;
   image: string;
+  size?: string;
+  color?: string;
 }
 
 export type OrderStatus = 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
@@ -24,6 +26,10 @@ export interface IOrder extends Document {
   };
   status: OrderStatus;
   paymentStatus: 'PENDING' | 'PAID';
+  paymentMethod: 'COD' | 'RAZORPAY';
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  razorpaySignature?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -38,7 +44,9 @@ const OrderSchema: Schema = new Schema(
         name: { type: String, required: true },
         price: { type: Number, required: true },
         quantity: { type: Number, required: true, default: 1 },
-        image: { type: String }
+        image: { type: String },
+        size: { type: String },
+        color: { type: String }
       }
     ],
     totalAmount: { type: Number, required: true },
@@ -50,7 +58,11 @@ const OrderSchema: Schema = new Schema(
       postalCode: { type: String }
     },
     status: { type: String, enum: ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'], default: 'PENDING' },
-    paymentStatus: { type: String, enum: ['PENDING', 'PAID'], default: 'PENDING' }
+    paymentStatus: { type: String, enum: ['PENDING', 'PAID'], default: 'PENDING' },
+    paymentMethod: { type: String, enum: ['COD', 'RAZORPAY'], default: 'COD' },
+    razorpayOrderId: { type: String },
+    razorpayPaymentId: { type: String },
+    razorpaySignature: { type: String }
   },
   { timestamps: true }
 );

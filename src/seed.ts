@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import mongoose from 'mongoose';
 import User from './models/User';
 import Category from './models/Category';
 import Product from './models/Product';

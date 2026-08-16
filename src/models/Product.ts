@@ -13,6 +13,8 @@ export interface IProduct extends Document {
   badge?: string;
   status: ProductStatus;
   description?: string;
+  materials?: string;
+  shipping?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,7 +30,9 @@ const ProductSchema: Schema = new Schema(
     images: [{ type: String }],
     badge: { type: String, trim: true },
     status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED'], default: 'APPROVED' },
-    description: { type: String }
+    description: { type: String },
+    materials: { type: String },
+    shipping: { type: String }
   },
   { timestamps: true }
 );
