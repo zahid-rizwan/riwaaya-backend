@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import User from '../models/User';
 import Product from '../models/Product';
 import Order from '../models/Order';
@@ -29,7 +30,13 @@ export const getAdminDashboardStats = async (req: Request, res: Response, next: 
 
 export const getAllSellers = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const sellers = await User.find({ role: 'SELLER' }).sort({ createdAt: -1 });
+    let sellers: any[] = [];
+    if (mongoose.connection.readyState === 1) {
+      sellers = await User.find({ role: 'SELLER' })
+        .sort({ createdAt: -1 })
+        .maxTimeMS(2000)
+        .catch(() => []);
+    }
     return sendResponse(res, 200, 'Sellers fetched successfully', sellers);
   } catch (error) {
     return next(error);
@@ -45,11 +52,14 @@ export const approveSeller = async (req: Request, res: Response, next: NextFunct
       throw new ApiError(400, 'Seller ID is required');
     }
 
-    const seller = await User.findByIdAndUpdate(
-      sellerId,
-      { isSellerApproved: isApproved },
-      { new: true }
-    );
+    let seller: any = null;
+    if (mongoose.connection.readyState === 1) {
+      seller = await User.findByIdAndUpdate(
+        sellerId,
+        { isSellerApproved: isApproved },
+        { new: true }
+      ).maxTimeMS(2000).catch(() => null);
+    }
 
     const result = seller || { _id: sellerId, isSellerApproved: isApproved };
     return sendResponse(res, 200, `Seller status set to ${isApproved ? 'Approved' : 'Pending'}`, result);
@@ -72,7 +82,9 @@ export const approveProduct = async (req: Request, res: Response, next: NextFunc
     productStore.updateStatus(productId, newStatus);
 
     // Update in MongoDB Atlas database
-    await Product.findByIdAndUpdate(productId, { status: newStatus }, { new: true }).catch(() => null);
+    if (mongoose.connection.readyState === 1) {
+      await Product.findByIdAndUpdate(productId, { status: newStatus }, { new: true }).maxTimeMS(2000).catch(() => null);
+    }
 
     return sendResponse(res, 200, 'Product status updated successfully', { _id: productId, status: newStatus });
   } catch (error) {
@@ -82,9 +94,14 @@ export const approveProduct = async (req: Request, res: Response, next: NextFunc
 
 export const getAllOrders = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const orders = await Order.find()
-      .populate('customer', 'name email phone')
-      .sort({ createdAt: -1 });
+    let orders: any[] = [];
+    if (mongoose.connection.readyState === 1) {
+      orders = await Order.find()
+        .populate('customer', 'name email phone')
+        .sort({ createdAt: -1 })
+        .maxTimeMS(2000)
+        .catch(() => []);
+    }
 
     return sendResponse(res, 200, 'Orders fetched successfully', orders);
   } catch (error) {

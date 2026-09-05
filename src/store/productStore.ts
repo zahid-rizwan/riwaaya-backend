@@ -180,6 +180,16 @@ class ProductStore {
     }
     return prod;
   }
+
+  public remove(id: string): boolean {
+    const initialLen = this.products.length;
+    this.products = this.products.filter(p => p._id !== id && p.id !== id);
+    const removed = this.products.length < initialLen;
+    if (removed) {
+      this.saveToFile();
+    }
+    return removed;
+  }
 }
 
 export const productStore = new ProductStore();

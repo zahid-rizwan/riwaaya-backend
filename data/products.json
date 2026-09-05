@@ -1,77 +1,5 @@
 [
   {
-    "_id": "1785696114436",
-    "id": "1785696114436",
-    "name": "Mera Product",
-    "price": 18500,
-    "stock": 10,
-    "tag": "suits",
-    "badge": "New",
-    "images": [
-      "/assets/1540aab590cd7d478ad01cdb1a615d469ef2a808.png"
-    ],
-    "description": "This is the description",
-    "status": "PENDING",
-    "variants": [
-      {
-        "id": "v_1785696114436",
-        "sku": "SKU-4436",
-        "size": "M",
-        "price": 18500,
-        "stock": 10
-      }
-    ],
-    "createdAt": "2026-08-02T18:41:54.436Z"
-  },
-  {
-    "_id": "6a66027a0a574e76a7c1ba3d",
-    "id": "6a66027a0a574e76a7c1ba3d",
-    "name": "DESI KAPRA",
-    "price": 18500,
-    "stock": 10,
-    "tag": "suits",
-    "badge": "New",
-    "images": [
-      "/assets/1540aab590cd7d478ad01cdb1a615d469ef2a808.png"
-    ],
-    "description": "Tjhis",
-    "status": "APPROVED",
-    "variants": [
-      {
-        "id": "v_1785070202359",
-        "sku": "SKU-2359",
-        "size": "M",
-        "price": 18500,
-        "stock": 10
-      }
-    ],
-    "createdAt": "2026-07-26T12:50:02.359Z"
-  },
-  {
-    "_id": "6a65fe2c0a574e76a7c1b9ad",
-    "id": "6a65fe2c0a574e76a7c1b9ad",
-    "name": "Mera Product",
-    "price": 18500,
-    "stock": 10,
-    "tag": "coords",
-    "badge": "New",
-    "images": [
-      "/assets/1540aab590cd7d478ad01cdb1a615d469ef2a808.png"
-    ],
-    "description": "cdvsddsdv",
-    "status": "APPROVED",
-    "variants": [
-      {
-        "id": "v_1785069100787",
-        "sku": "SKU-0787",
-        "size": "M",
-        "price": 18500,
-        "stock": 10
-      }
-    ],
-    "createdAt": "2026-07-26T12:31:40.787Z"
-  },
-  {
     "_id": "6a65fc3db8ccc3ae4e21dee5",
     "id": "6a65fc3db8ccc3ae4e21dee5",
     "name": "Mera Product",
@@ -94,44 +22,6 @@
         "stock": 10
       }
     ]
-  },
-  {
-    "_id": "1",
-    "id": "1",
-    "name": "Gulzar Ivory Suit",
-    "price": 18500,
-    "stock": 12,
-    "tag": "suits",
-    "badge": "New",
-    "images": [
-      "/assets/1540aab590cd7d478ad01cdb1a615d469ef2a808.png"
-    ],
-    "description": "Intricately embroidered ivory lawn suit with pure silk dupatta.",
-    "status": "APPROVED",
-    "variants": [
-      {
-        "id": "v1",
-        "sku": "GUL-IVORY-S",
-        "size": "S",
-        "price": 18500,
-        "stock": 4
-      },
-      {
-        "id": "v2",
-        "sku": "GUL-IVORY-M",
-        "size": "M",
-        "price": 18500,
-        "stock": 5
-      },
-      {
-        "id": "v3",
-        "sku": "GUL-IVORY-L",
-        "size": "L",
-        "price": 18500,
-        "stock": 3
-      }
-    ],
-    "createdAt": "2026-07-26T12:17:59.464Z"
   },
   {
     "_id": "2",
@@ -160,61 +50,6 @@
         "size": "L",
         "price": 14200,
         "stock": 3
-      }
-    ],
-    "createdAt": "2026-07-26T12:17:59.465Z"
-  },
-  {
-    "_id": "3",
-    "id": "3",
-    "name": "Rose Dust Gharara",
-    "price": 24500,
-    "stock": 5,
-    "tag": "party",
-    "badge": "Limited",
-    "images": [
-      "/assets/14b11c8de3394bd25477cfb02149a056c046d507.png"
-    ],
-    "description": "Bridal ready formal gharara set with tilla & sequin work.",
-    "status": "APPROVED",
-    "variants": [
-      {
-        "id": "v6",
-        "sku": "ROSE-GHAR-M",
-        "size": "M",
-        "price": 24500,
-        "stock": 3
-      },
-      {
-        "id": "v7",
-        "sku": "ROSE-GHAR-L",
-        "size": "L",
-        "price": 24500,
-        "stock": 2
-      }
-    ],
-    "createdAt": "2026-07-26T12:17:59.465Z"
-  },
-  {
-    "_id": "4",
-    "id": "4",
-    "name": "Shahi Heritage Hamper",
-    "price": 12500,
-    "stock": 15,
-    "tag": "hampers",
-    "badge": "Exclusive",
-    "images": [
-      "/assets/bfbf18493c6f15c8b582f56fad304f8de3f26c0f.png"
-    ],
-    "description": "Luxury gift hamper including handcrafted shawl, perfume, and dried fruits box.",
-    "status": "APPROVED",
-    "variants": [
-      {
-        "id": "v8",
-        "sku": "SHAHI-HAMP-STD",
-        "size": "Standard",
-        "price": 12500,
-        "stock": 15
       }
     ],
     "createdAt": "2026-07-26T12:17:59.465Z"

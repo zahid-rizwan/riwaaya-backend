@@ -22,11 +22,18 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
   try {
     const { tag, search, status } = req.query;
     
-    // Always query DB
-    const dbProducts = await Product.find()
-      .populate('seller', 'shopName name email')
-      .populate('category', 'name slug')
-      .sort({ createdAt: -1 });
+    let dbProducts: any[] = [];
+    if (mongoose.connection.readyState === 1) {
+      dbProducts = await Product.find()
+        .populate('seller', 'shopName name email')
+        .populate('category', 'name slug')
+        .sort({ createdAt: -1 })
+        .maxTimeMS(2000)
+        .catch(err => {
+          console.log('MongoDB getProducts note:', err.message);
+          return [];
+        });
+    }
 
     const storeItems = productStore.getAll();
     const combinedMap = new Map<string, any>();
@@ -177,10 +184,17 @@ export const createVariant = async (req: AuthRequest, res: Response, next: NextF
   }
 };
 
+
+
 export const updateProduct = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const product = await Product.findByIdAndUpdate(id, req.body, { new: true }).catch(() => null);
+    let product: any = null;
+    if (mongoose.connection.readyState === 1) {
+      product = await Product.findByIdAndUpdate(id, req.body, { new: true })
+        .maxTimeMS(2000)
+        .catch(() => null);
+    }
     if (product) return sendResponse(res, 200, 'Product updated successfully', product);
 
     const memItem = productStore.update(id, req.body);
@@ -197,7 +211,10 @@ export const updateProduct = async (req: AuthRequest, res: Response, next: NextF
 export const deleteProduct = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    await Product.findByIdAndDelete(id).catch(() => null);
+    if (mongoose.connection.readyState === 1) {
+      await Product.findByIdAndDelete(id).maxTimeMS(2000).catch(() => null);
+    }
+    productStore.remove(id);
     return sendResponse(res, 200, 'Product removed successfully', { id });
   } catch (error) {
     return next(error);

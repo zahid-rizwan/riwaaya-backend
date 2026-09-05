@@ -85,7 +85,13 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
 
 export const getMyOrders = async (req: AuthRequest, res: Response) => {
   try {
-    const orders = await Order.find({ customer: req.user?._id }).sort({ createdAt: -1 });
+    let orders: any[] = [];
+    if (mongoose.connection.readyState === 1) {
+      orders = await Order.find({ customer: req.user?._id })
+        .sort({ createdAt: -1 })
+        .maxTimeMS(2000)
+        .catch(() => []);
+    }
     res.json(orders);
   } catch (error: any) {
     res.status(500).json({ message: error.message || 'Server Error' });
@@ -94,8 +100,13 @@ export const getMyOrders = async (req: AuthRequest, res: Response) => {
 
 export const getOrderById = async (req: AuthRequest, res: Response) => {
   try {
-    const order = await Order.findById(req.params.id)
-      .populate('customer', 'name email phone');
+    let order: any = null;
+    if (mongoose.connection.readyState === 1) {
+      order = await Order.findById(req.params.id)
+        .populate('customer', 'name email phone')
+        .maxTimeMS(2000)
+        .catch(() => null);
+    }
 
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
