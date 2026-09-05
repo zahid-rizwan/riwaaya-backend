@@ -119,24 +119,38 @@ export const getProductById = async (req: Request, res: Response, next: NextFunc
 
 export const createProduct = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { name, category, tag, price, stock, images, description, materials, shipping, variants } = req.body;
+    const { name, category, tag, price, stock, images, description, materials, shipping, variants, status } = req.body;
+
+    let validCategoryObjId: mongoose.Types.ObjectId | undefined = undefined;
+    if (category && mongoose.Types.ObjectId.isValid(category)) {
+      validCategoryObjId = new mongoose.Types.ObjectId(category);
+    }
+
+    let validSellerObjId: mongoose.Types.ObjectId | undefined = undefined;
+    if (req.user?._id && mongoose.Types.ObjectId.isValid(req.user._id)) {
+      validSellerObjId = new mongoose.Types.ObjectId(req.user._id);
+    }
+
+    const initialStatus = status || 'APPROVED';
 
     const dbDoc = await Product.create({
       name: name || 'New Atelier Suit',
-      tag: tag || 'coords',
+      tag: tag || 'suits',
       price: price ? parseFloat(price) : 18500,
       stock: stock ? parseInt(stock) : 10,
       images: images && images.length > 0 ? images : ["/assets/1540aab590cd7d478ad01cdb1a615d469ef2a808.png"],
       description: description || 'Handcrafted luxury apparel.',
       materials: materials || 'Pure Lawn Cotton & Silk. Dry clean only.',
       shipping: shipping || 'Free delivery on orders over PKR 5,000. 7-day return policy.',
-      status: 'PENDING'
+      status: initialStatus,
+      seller: validSellerObjId,
+      category: validCategoryObjId
     }).catch(err => {
-      console.log('MongoDB Insert Note:', err.message);
+      console.log('MongoDB Insert Error/Note:', err.message);
       return null;
     });
 
-    const assignedId = dbDoc ? dbDoc._id.toString() : Date.now().toString();
+    const assignedId = dbDoc ? dbDoc._id.toString() : (new mongoose.Types.ObjectId()).toString();
 
     const newProductItem: ProductItem = {
       _id: assignedId,
@@ -144,13 +158,13 @@ export const createProduct = async (req: AuthRequest, res: Response, next: NextF
       name: name || 'New Atelier Suit',
       price: price ? parseFloat(price) : 18500,
       stock: stock ? parseInt(stock) : 10,
-      tag: tag || 'coords',
+      tag: tag || 'suits',
       badge: 'New',
       images: images && images.length > 0 ? images : ["/assets/1540aab590cd7d478ad01cdb1a615d469ef2a808.png"],
       description: description || 'Handcrafted luxury apparel.',
       materials: materials || 'Pure Lawn Cotton & Silk. Dry clean only.',
       shipping: shipping || 'Free delivery on orders over PKR 5,000. 7-day return policy.',
-      status: 'PENDING',
+      status: initialStatus,
       variants: variants && variants.length > 0 ? variants : [
         { id: `v_${Date.now()}`, sku: `SKU-${Date.now().toString().slice(-4)}`, size: 'M', price: price ? parseFloat(price) : 18500, stock: stock ? parseInt(stock) : 10 }
       ],
