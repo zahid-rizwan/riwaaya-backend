@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import Product from '../models/Product';
+import Category from '../models/Category';
+import User from '../models/User';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { productStore, ProductItem } from '../store/productStore';
 import { sendResponse } from '../utils/apiResponse';
@@ -22,68 +24,42 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
   try {
     const { tag, search, status } = req.query;
     
-    let dbProducts: any[] = [];
+    const filterQuery: any = {};
+    if (tag && tag !== 'all') {
+      filterQuery.tag = tag;
+    }
+    if (search) {
+      filterQuery.name = { $regex: search as string, $options: 'i' };
+    }
+    if (status === 'ALL') {
+      // return all statuses
+    } else if (status) {
+      filterQuery.status = status;
+    } else {
+      filterQuery.status = { $in: ['APPROVED', 'PENDING'] };
+    }
+
+    let products: any[] = [];
     if (mongoose.connection.readyState === 1) {
-      dbProducts = await Product.find()
+      products = await Product.find(filterQuery)
         .populate('seller', 'shopName name email')
         .populate('category', 'name slug')
         .sort({ createdAt: -1 })
-        .maxTimeMS(2000)
-        .catch(err => {
-          console.log('MongoDB getProducts note:', err.message);
-          return [];
-        });
-    }
-
-    const storeItems = productStore.getAll();
-    const combinedMap = new Map<string, any>();
-
-    // Add in-memory/JSON storeItems first
-    storeItems.forEach(item => {
-      combinedMap.set(item._id || item.id!, item);
-    });
-
-    // Merge DB products
-    dbProducts.forEach((p: any) => {
-      const idStr = p._id.toString();
-      const existing = combinedMap.get(idStr);
-      combinedMap.set(idStr, {
-        _id: idStr,
-        id: idStr,
-        name: p.name,
-        price: p.price,
-        stock: p.stock,
-        tag: p.tag || 'suits',
-        badge: p.badge || existing?.badge || 'New',
-        status: p.status || existing?.status || 'APPROVED',
-        seller: p.seller || { shopName: 'Seller A Atelier', name: 'Zahid' },
-        description: p.description,
-        materials: p.materials || existing?.materials,
-        shipping: p.shipping || existing?.shipping,
-        images: p.images && p.images.length > 0 ? p.images : ["/assets/1540aab590cd7d478ad01cdb1a615d469ef2a808.png"],
-        variants: p.variants || existing?.variants || []
-      });
-    });
-
-    let allProducts = Array.from(combinedMap.values());
-
-    if (status === 'ALL') {
-      // return all
-    } else if (status) {
-      allProducts = allProducts.filter(p => p.status === status);
+        .maxTimeMS(3000);
     } else {
-      allProducts = allProducts.filter(p => p.status === 'APPROVED' || p.status === 'PENDING');
+      let storeItems = productStore.getAll();
+      if (tag && tag !== 'all') storeItems = storeItems.filter(p => p.tag === tag);
+      if (search) {
+        const q = (search as string).toLowerCase();
+        storeItems = storeItems.filter(p => p.name?.toLowerCase().includes(q));
+      }
+      if (status && status !== 'ALL') {
+        storeItems = storeItems.filter(p => p.status === status);
+      }
+      products = storeItems;
     }
 
-    if (tag && tag !== 'all') {
-      allProducts = allProducts.filter(p => p.tag === tag);
-    }
-    if (search) {
-      const q = (search as string).toLowerCase();
-      allProducts = allProducts.filter(p => p.name?.toLowerCase().includes(q));
-    }
-
-    const sanitized = sanitizeProductImages(allProducts, req);
+    const sanitized = sanitizeProductImages(products, req);
     return sendResponse(res, 200, 'Products fetched successfully', sanitized, { count: sanitized.length });
   } catch (error) {
     return next(error);
@@ -94,11 +70,11 @@ export const getProductById = async (req: Request, res: Response, next: NextFunc
   try {
     const { id } = req.params;
     let dbProduct: any = null;
-    if (mongoose.connection.readyState === 1) {
+    if (mongoose.connection.readyState === 1 && mongoose.Types.ObjectId.isValid(id)) {
       dbProduct = await Product.findById(id)
         .populate('seller', 'shopName name email phone shopDescription')
         .populate('category', 'name slug description')
-        .maxTimeMS(2000)
+        .maxTimeMS(3000)
         .catch(() => null);
     }
 
@@ -122,33 +98,50 @@ export const createProduct = async (req: AuthRequest, res: Response, next: NextF
     const { name, category, tag, price, stock, images, description, materials, shipping, variants, status } = req.body;
 
     let validCategoryObjId: mongoose.Types.ObjectId | undefined = undefined;
-    if (category && mongoose.Types.ObjectId.isValid(category)) {
-      validCategoryObjId = new mongoose.Types.ObjectId(category);
-    }
-
     let validSellerObjId: mongoose.Types.ObjectId | undefined = undefined;
-    if (req.user?._id && mongoose.Types.ObjectId.isValid(req.user._id)) {
-      validSellerObjId = new mongoose.Types.ObjectId(req.user._id);
+
+    if (mongoose.connection.readyState === 1) {
+      if (category && mongoose.Types.ObjectId.isValid(category)) {
+        validCategoryObjId = new mongoose.Types.ObjectId(category);
+      } else {
+        const targetSlug = tag || (category === '1' ? 'suits' : category === '2' ? 'coords' : category === '3' ? 'party' : category === '4' ? 'hampers' : 'suits');
+        const catDoc = await Category.findOne({ slug: targetSlug }).maxTimeMS(2000).catch(() => null);
+        if (catDoc) {
+          validCategoryObjId = catDoc._id as mongoose.Types.ObjectId;
+        }
+      }
+
+      if (req.user?._id && mongoose.Types.ObjectId.isValid(req.user._id)) {
+        validSellerObjId = new mongoose.Types.ObjectId(req.user._id);
+      } else {
+        const defaultSeller = await User.findOne({ role: 'SELLER' }).maxTimeMS(2000).catch(() => null);
+        if (defaultSeller) {
+          validSellerObjId = defaultSeller._id as mongoose.Types.ObjectId;
+        }
+      }
     }
 
     const initialStatus = status || 'APPROVED';
+    let dbDoc: any = null;
 
-    const dbDoc = await Product.create({
-      name: name || 'New Atelier Suit',
-      tag: tag || 'suits',
-      price: price ? parseFloat(price) : 18500,
-      stock: stock ? parseInt(stock) : 10,
-      images: images && images.length > 0 ? images : ["/assets/1540aab590cd7d478ad01cdb1a615d469ef2a808.png"],
-      description: description || 'Handcrafted luxury apparel.',
-      materials: materials || 'Pure Lawn Cotton & Silk. Dry clean only.',
-      shipping: shipping || 'Free delivery on orders over PKR 5,000. 7-day return policy.',
-      status: initialStatus,
-      seller: validSellerObjId,
-      category: validCategoryObjId
-    }).catch(err => {
-      console.log('MongoDB Insert Error/Note:', err.message);
-      return null;
-    });
+    if (mongoose.connection.readyState === 1) {
+      dbDoc = await Product.create({
+        name: name || 'New Atelier Suit',
+        tag: tag || 'suits',
+        price: price ? parseFloat(price) : 18500,
+        stock: stock ? parseInt(stock) : 10,
+        images: images && images.length > 0 ? images : ["/assets/1540aab590cd7d478ad01cdb1a615d469ef2a808.png"],
+        description: description || 'Handcrafted luxury apparel.',
+        materials: materials || 'Pure Lawn Cotton & Silk. Dry clean only.',
+        shipping: shipping || 'Free delivery on orders over PKR 5,000. 7-day return policy.',
+        status: initialStatus,
+        seller: validSellerObjId,
+        category: validCategoryObjId
+      }).catch(err => {
+        console.log('MongoDB Insert Error/Note:', err.message);
+        return null;
+      });
+    }
 
     const assignedId = dbDoc ? dbDoc._id.toString() : (new mongoose.Types.ObjectId()).toString();
 

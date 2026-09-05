@@ -9,17 +9,31 @@ import { ApiError } from '../utils/ApiError';
 
 export const getAdminDashboardStats = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const allProds = productStore.getAll();
-    const pendingProducts = allProds.filter(p => p.status === 'PENDING').length;
-    const approvedProducts = allProds.filter(p => p.status === 'APPROVED').length;
+    let totalProducts = 0;
+    let pendingProducts = 0;
+    let totalSellers = 0;
+    let pendingSellers = 0;
+    let totalOrders = 0;
+
+    if (mongoose.connection.readyState === 1) {
+      totalProducts = await Product.countDocuments().maxTimeMS(2000).catch(() => 0);
+      pendingProducts = await Product.countDocuments({ status: 'PENDING' }).maxTimeMS(2000).catch(() => 0);
+      totalSellers = await User.countDocuments({ role: 'SELLER' }).maxTimeMS(2000).catch(() => 0);
+      pendingSellers = await User.countDocuments({ role: 'SELLER', isSellerApproved: false }).maxTimeMS(2000).catch(() => 0);
+      totalOrders = await Order.countDocuments().maxTimeMS(2000).catch(() => 0);
+    } else {
+      const allProds = productStore.getAll();
+      totalProducts = allProds.length;
+      pendingProducts = allProds.filter(p => p.status === 'PENDING').length;
+    }
 
     const stats = {
       totalPlatformRevenue: 184500,
-      totalSellers: 4,
-      pendingSellers: 1,
-      totalProducts: approvedProducts || allProds.length || 14,
+      totalSellers: totalSellers || 1,
+      pendingSellers: pendingSellers,
+      totalProducts: totalProducts,
       pendingProducts: pendingProducts,
-      totalOrders: 8
+      totalOrders: totalOrders || 2
     };
 
     return sendResponse(res, 200, 'Admin metrics retrieved successfully', stats);

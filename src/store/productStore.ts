@@ -115,7 +115,7 @@ class ProductStore {
       if (fs.existsSync(FILE_PATH)) {
         const raw = fs.readFileSync(FILE_PATH, 'utf-8');
         const data = JSON.parse(raw);
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           this.products = data;
           return;
         }

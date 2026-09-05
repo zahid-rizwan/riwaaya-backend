@@ -1,5 +1,115 @@
 [
   {
+    "_id": "6a65fc0e1f35949e4c8cafdc",
+    "id": "6a65fc0e1f35949e4c8cafdc",
+    "name": "Shahi Heritage Hamper",
+    "price": 12500,
+    "stock": 15,
+    "tag": "hampers",
+    "badge": "Exclusive",
+    "status": "APPROVED",
+    "seller": {
+      "_id": "6a65fc0e1f35949e4c8cafd2",
+      "name": "Gulzar Couture",
+      "email": "seller@gulzar.com",
+      "shopName": "Gulzar Artisan Atelier"
+    },
+    "description": "Luxury gift hamper including handcrafted shawl, perfume, and dried fruits box.",
+    "images": [
+      "/assets/bfbf18493c6f15c8b582f56fad304f8de3f26c0f.png"
+    ],
+    "variants": []
+  },
+  {
+    "_id": "6a65fc0e1f35949e4c8cafdb",
+    "id": "6a65fc0e1f35949e4c8cafdb",
+    "name": "Rose Dust Gharara",
+    "price": 24500,
+    "stock": 5,
+    "tag": "party",
+    "badge": "Limited",
+    "status": "APPROVED",
+    "seller": {
+      "_id": "6a65fc0e1f35949e4c8cafd2",
+      "name": "Gulzar Couture",
+      "email": "seller@gulzar.com",
+      "shopName": "Gulzar Artisan Atelier"
+    },
+    "description": "Bridal ready formal gharara set with tilla & sequin work.",
+    "images": [
+      "/assets/14b11c8de3394bd25477cfb02149a056c046d507.png"
+    ],
+    "variants": []
+  },
+  {
+    "_id": "6a65fc0e1f35949e4c8cafda",
+    "id": "6a65fc0e1f35949e4c8cafda",
+    "name": "Amber Heritage Lawn",
+    "price": 14200,
+    "stock": 8,
+    "tag": "coords",
+    "badge": "Bestseller",
+    "status": "APPROVED",
+    "seller": {
+      "_id": "6a65fc0e1f35949e4c8cafd2",
+      "name": "Gulzar Couture",
+      "email": "seller@gulzar.com",
+      "shopName": "Gulzar Artisan Atelier"
+    },
+    "description": "2-piece curated lawn co-ord set with handcrafted threadwork.",
+    "images": [
+      "/assets/f5033b1a4ddb926f41bc87a1c3a2f99082eaa624.png"
+    ],
+    "variants": []
+  },
+  {
+    "_id": "6a65fc0e1f35949e4c8cafd9",
+    "id": "6a65fc0e1f35949e4c8cafd9",
+    "name": "Gulzar Ivory Suit",
+    "price": 18500,
+    "stock": 12,
+    "tag": "suits",
+    "badge": "New",
+    "status": "APPROVED",
+    "seller": {
+      "_id": "6a65fc0e1f35949e4c8cafd2",
+      "name": "Gulzar Couture",
+      "email": "seller@gulzar.com",
+      "shopName": "Gulzar Artisan Atelier"
+    },
+    "description": "Intricately embroidered ivory lawn suit with pure silk dupatta.",
+    "images": [
+      "/assets/1540aab590cd7d478ad01cdb1a615d469ef2a808.png"
+    ],
+    "variants": []
+  },
+  {
+    "_id": "6a9c33406e9b03063404f93e",
+    "id": "6a9c33406e9b03063404f93e",
+    "name": "Test Persistent Suit",
+    "price": 19500,
+    "stock": 5,
+    "tag": "suits",
+    "badge": "New",
+    "images": [
+      "/assets/1540aab590cd7d478ad01cdb1a615d469ef2a808.png"
+    ],
+    "description": "Test persistent product",
+    "materials": "Pure Lawn Cotton & Silk. Dry clean only.",
+    "shipping": "Free delivery on orders over PKR 5,000. 7-day return policy.",
+    "status": "APPROVED",
+    "variants": [
+      {
+        "id": "v_1788621632388",
+        "sku": "SKU-2388",
+        "size": "M",
+        "price": 19500,
+        "stock": 5
+      }
+    ],
+    "createdAt": "2026-09-05T15:20:32.388Z"
+  },
+  {
     "_id": "6a65fc3db8ccc3ae4e21dee5",
     "id": "6a65fc3db8ccc3ae4e21dee5",
     "name": "Mera Product",

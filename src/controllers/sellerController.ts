@@ -7,36 +7,54 @@ import { productStore } from '../store/productStore';
 
 export const getSellerStats = async (req: AuthRequest, res: Response) => {
   try {
-    const allProds = productStore.getAll();
+    let prods: any[] = [];
+    if (mongoose.connection.readyState === 1) {
+      prods = await Product.find().maxTimeMS(3000);
+    } else {
+      prods = productStore.getAll();
+    }
     res.json({
-      revenue: 148500,
+      revenue: prods.reduce((acc, p) => acc + ((p.price || 0) * (p.stock || 1)), 0),
       ordersCount: 2,
-      productsCount: allProds.length,
-      totalStock: allProds.reduce((acc, p) => acc + (p.stock || 0), 0)
+      productsCount: prods.length,
+      totalStock: prods.reduce((acc, p) => acc + (p.stock || 0), 0)
     });
   } catch (error: any) {
     res.json({
       revenue: 148500,
       ordersCount: 2,
-      productsCount: 4,
-      totalStock: 20
+      productsCount: 0,
+      totalStock: 0
     });
   }
 };
 
 export const getSellerProducts = async (req: AuthRequest, res: Response) => {
   try {
-    const products = productStore.getAll();
+    let products: any[] = [];
+    if (mongoose.connection.readyState === 1) {
+      products = await Product.find()
+        .populate('seller', 'shopName name email')
+        .populate('category', 'name slug')
+        .sort({ createdAt: -1 })
+        .maxTimeMS(3000);
+    } else {
+      products = productStore.getAll();
+    }
     const host = `${req.protocol}://${req.get('host')}`;
-    const sanitized = products.map(p => ({
-      ...p,
-      images: Array.isArray(p.images)
-        ? p.images.map(img => typeof img === 'string' ? img.replace(/^http:\/\/localhost:\d+/, host) : img)
-        : p.images
-    }));
+    const sanitized = products.map(p => {
+      const obj = p.toObject ? p.toObject() : { ...p };
+      return {
+        ...obj,
+        id: obj._id ? obj._id.toString() : obj.id,
+        images: Array.isArray(obj.images)
+          ? obj.images.map((img: string) => typeof img === 'string' ? img.replace(/^http:\/\/localhost:\d+/, host) : img)
+          : obj.images
+      };
+    });
     res.json(sanitized);
   } catch (error: any) {
-    res.json(productStore.getAll());
+    res.json([]);
   }
 };
 
