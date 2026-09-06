@@ -4,12 +4,14 @@ import Product from '../models/Product';
 import Order from '../models/Order';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { productStore } from '../store/productStore';
+import { ensureDbConnected } from '../config/db';
 
 export const getSellerStats = async (req: AuthRequest, res: Response) => {
   try {
+    await ensureDbConnected();
     let prods: any[] = [];
     if (mongoose.connection.readyState === 1) {
-      prods = await Product.find().maxTimeMS(3000);
+      prods = await Product.find().maxTimeMS(5000);
     } else {
       prods = productStore.getAll();
     }
@@ -31,13 +33,14 @@ export const getSellerStats = async (req: AuthRequest, res: Response) => {
 
 export const getSellerProducts = async (req: AuthRequest, res: Response) => {
   try {
+    await ensureDbConnected();
     let products: any[] = [];
     if (mongoose.connection.readyState === 1) {
       products = await Product.find()
         .populate('seller', 'shopName name email')
         .populate('category', 'name slug')
         .sort({ createdAt: -1 })
-        .maxTimeMS(3000);
+        .maxTimeMS(5000);
     } else {
       products = productStore.getAll();
     }

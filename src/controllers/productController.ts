@@ -7,6 +7,7 @@ import { AuthRequest } from '../middleware/authMiddleware';
 import { productStore, ProductItem } from '../store/productStore';
 import { sendResponse } from '../utils/apiResponse';
 import { ApiError } from '../utils/ApiError';
+import { ensureDbConnected } from '../config/db';
 
 const sanitizeProductImages = (products: any[], req: Request) => {
   const host = `${req.protocol}://${req.get('host')}`;
@@ -22,6 +23,7 @@ const sanitizeProductImages = (products: any[], req: Request) => {
 
 export const getProducts = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    await ensureDbConnected();
     const { tag, search, status } = req.query;
     
     const filterQuery: any = {};
@@ -45,7 +47,7 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
         .populate('seller', 'shopName name email')
         .populate('category', 'name slug')
         .sort({ createdAt: -1 })
-        .maxTimeMS(3000);
+        .maxTimeMS(5000);
     } else {
       let storeItems = productStore.getAll();
       if (tag && tag !== 'all') storeItems = storeItems.filter(p => p.tag === tag);
@@ -68,13 +70,14 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
 
 export const getProductById = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    await ensureDbConnected();
     const { id } = req.params;
     let dbProduct: any = null;
     if (mongoose.connection.readyState === 1 && mongoose.Types.ObjectId.isValid(id)) {
       dbProduct = await Product.findById(id)
         .populate('seller', 'shopName name email phone shopDescription')
         .populate('category', 'name slug description')
-        .maxTimeMS(3000)
+        .maxTimeMS(5000)
         .catch(() => null);
     }
 
@@ -95,6 +98,7 @@ export const getProductById = async (req: Request, res: Response, next: NextFunc
 
 export const createProduct = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    await ensureDbConnected();
     const { name, category, tag, price, stock, images, description, materials, shipping, variants, status } = req.body;
 
     let validCategoryObjId: mongoose.Types.ObjectId | undefined = undefined;
@@ -105,7 +109,7 @@ export const createProduct = async (req: AuthRequest, res: Response, next: NextF
         validCategoryObjId = new mongoose.Types.ObjectId(category);
       } else {
         const targetSlug = tag || (category === '1' ? 'suits' : category === '2' ? 'coords' : category === '3' ? 'party' : category === '4' ? 'hampers' : 'suits');
-        const catDoc = await Category.findOne({ slug: targetSlug }).maxTimeMS(2000).catch(() => null);
+        const catDoc = await Category.findOne({ slug: targetSlug }).maxTimeMS(5000).catch(() => null);
         if (catDoc) {
           validCategoryObjId = catDoc._id as mongoose.Types.ObjectId;
         }
@@ -114,7 +118,7 @@ export const createProduct = async (req: AuthRequest, res: Response, next: NextF
       if (req.user?._id && mongoose.Types.ObjectId.isValid(req.user._id)) {
         validSellerObjId = new mongoose.Types.ObjectId(req.user._id);
       } else {
-        const defaultSeller = await User.findOne({ role: 'SELLER' }).maxTimeMS(2000).catch(() => null);
+        const defaultSeller = await User.findOne({ role: 'SELLER' }).maxTimeMS(5000).catch(() => null);
         if (defaultSeller) {
           validSellerObjId = defaultSeller._id as mongoose.Types.ObjectId;
         }
@@ -165,7 +169,7 @@ export const createProduct = async (req: AuthRequest, res: Response, next: NextF
     };
 
     productStore.add(newProductItem);
-    return sendResponse(res, 201, 'Product created successfully', newProductItem);
+    return sendResponse(res, 201, 'Product created successfully', dbDoc || newProductItem);
   } catch (error) {
     return next(error);
   }
@@ -191,15 +195,14 @@ export const createVariant = async (req: AuthRequest, res: Response, next: NextF
   }
 };
 
-
-
 export const updateProduct = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    await ensureDbConnected();
     const { id } = req.params;
     let product: any = null;
-    if (mongoose.connection.readyState === 1) {
+    if (mongoose.connection.readyState === 1 && mongoose.Types.ObjectId.isValid(id)) {
       product = await Product.findByIdAndUpdate(id, req.body, { new: true })
-        .maxTimeMS(2000)
+        .maxTimeMS(5000)
         .catch(() => null);
     }
     if (product) return sendResponse(res, 200, 'Product updated successfully', product);
@@ -217,9 +220,10 @@ export const updateProduct = async (req: AuthRequest, res: Response, next: NextF
 
 export const deleteProduct = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    await ensureDbConnected();
     const { id } = req.params;
-    if (mongoose.connection.readyState === 1) {
-      await Product.findByIdAndDelete(id).maxTimeMS(2000).catch(() => null);
+    if (mongoose.connection.readyState === 1 && mongoose.Types.ObjectId.isValid(id)) {
+      await Product.findByIdAndDelete(id).maxTimeMS(5000).catch(() => null);
     }
     productStore.remove(id);
     return sendResponse(res, 200, 'Product removed successfully', { id });
