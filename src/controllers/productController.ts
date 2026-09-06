@@ -16,11 +16,7 @@ const sanitizeProductImages = (products: any[], req: Request) => {
     const priceNum = typeof item.price === 'number' ? item.price : parseFloat(String(item.price).replace(/[^\d.]/g, '')) || 18500;
     const origPriceNum = item.originalPrice ? (typeof item.originalPrice === 'number' ? item.originalPrice : parseFloat(String(item.originalPrice).replace(/[^\d.]/g, ''))) : Math.round(priceNum * 1.25);
     const discountPercent = origPriceNum > priceNum ? Math.round(((origPriceNum - priceNum) / origPriceNum) * 100) : 0;
-    const colorsList = Array.isArray(item.colors) && item.colors.length > 0 ? item.colors : [
-      { name: 'Emerald Green', hex: '#046A38', inStock: true },
-      { name: 'Royal Maroon', hex: '#800000', inStock: true },
-      { name: 'Dusty Rose', hex: '#D8A7B1', inStock: true }
-    ];
+    const colorsList = Array.isArray(item.colors) ? item.colors : [];
 
     if (Array.isArray(item.images)) {
       item.images = item.images.map((img: string) =>
@@ -145,10 +141,7 @@ export const createProduct = async (req: AuthRequest, res: Response, next: NextF
     const initialStatus = status || 'APPROVED';
     const parsedPrice = price ? parseFloat(price) : 18500;
     const parsedOriginalPrice = originalPrice ? parseFloat(originalPrice) : Math.round(parsedPrice * 1.25);
-    const parsedColors = Array.isArray(colors) && colors.length > 0 ? colors : [
-      { name: 'Emerald Green', hex: '#046A38', inStock: true },
-      { name: 'Royal Maroon', hex: '#800000', inStock: true }
-    ];
+    const parsedColors = Array.isArray(colors) ? colors : [];
 
     let dbDoc: any = null;
 
