@@ -22,19 +22,22 @@ export interface IProduct extends Document {
 const ProductSchema: Schema = new Schema(
   {
     name: { type: String, required: true, trim: true },
-    seller: { type: Schema.Types.ObjectId, ref: 'User', required: false },
-    category: { type: Schema.Types.ObjectId, ref: 'Category', required: false },
-    tag: { type: String, required: true, default: 'suits' },
+    seller: { type: Schema.Types.ObjectId, ref: 'User', required: false, index: true },
+    category: { type: Schema.Types.ObjectId, ref: 'Category', required: false, index: true },
+    tag: { type: String, required: true, default: 'suits', index: true },
     price: { type: Number, required: true, min: 0 },
     stock: { type: Number, required: true, default: 1 },
     images: [{ type: String }],
     badge: { type: String, trim: true },
-    status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED'], default: 'APPROVED' },
+    status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED'], default: 'APPROVED', index: true },
     description: { type: String },
     materials: { type: String },
     shipping: { type: String }
   },
   { timestamps: true }
 );
+
+ProductSchema.index({ tag: 1, status: 1, createdAt: -1 });
+ProductSchema.index({ createdAt: -1 });
 
 export default mongoose.model<IProduct>('Product', ProductSchema);
