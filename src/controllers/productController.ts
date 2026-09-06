@@ -12,12 +12,29 @@ import { ensureDbConnected } from '../config/db';
 const sanitizeProductImages = (products: any[], req: Request) => {
   const host = `${req.protocol}://${req.get('host')}`;
   return products.map(p => {
-    if (Array.isArray(p.images)) {
-      p.images = p.images.map((img: string) =>
+    const item = p.toObject ? p.toObject() : { ...p };
+    const priceNum = typeof item.price === 'number' ? item.price : parseFloat(String(item.price).replace(/[^\d.]/g, '')) || 18500;
+    const origPriceNum = item.originalPrice ? (typeof item.originalPrice === 'number' ? item.originalPrice : parseFloat(String(item.originalPrice).replace(/[^\d.]/g, ''))) : Math.round(priceNum * 1.25);
+    const discountPercent = origPriceNum > priceNum ? Math.round(((origPriceNum - priceNum) / origPriceNum) * 100) : 0;
+    const colorsList = Array.isArray(item.colors) && item.colors.length > 0 ? item.colors : [
+      { name: 'Emerald Green', hex: '#046A38', inStock: true },
+      { name: 'Royal Maroon', hex: '#800000', inStock: true },
+      { name: 'Dusty Rose', hex: '#D8A7B1', inStock: true }
+    ];
+
+    if (Array.isArray(item.images)) {
+      item.images = item.images.map((img: string) =>
         typeof img === 'string' ? img.replace(/^http:\/\/localhost:\d+/, host) : img
       );
     }
-    return p;
+
+    return {
+      ...item,
+      price: priceNum,
+      originalPrice: origPriceNum,
+      discountPercent: discountPercent,
+      colors: colorsList
+    };
   });
 };
 
@@ -99,7 +116,7 @@ export const getProductById = async (req: Request, res: Response, next: NextFunc
 export const createProduct = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     await ensureDbConnected();
-    const { name, category, tag, price, stock, images, description, materials, shipping, variants, status } = req.body;
+    const { name, category, tag, price, originalPrice, colors, stock, images, description, materials, shipping, variants, status, badge } = req.body;
 
     let validCategoryObjId: mongoose.Types.ObjectId | undefined = undefined;
     let validSellerObjId: mongoose.Types.ObjectId | undefined = undefined;
@@ -126,15 +143,25 @@ export const createProduct = async (req: AuthRequest, res: Response, next: NextF
     }
 
     const initialStatus = status || 'APPROVED';
+    const parsedPrice = price ? parseFloat(price) : 18500;
+    const parsedOriginalPrice = originalPrice ? parseFloat(originalPrice) : Math.round(parsedPrice * 1.25);
+    const parsedColors = Array.isArray(colors) && colors.length > 0 ? colors : [
+      { name: 'Emerald Green', hex: '#046A38', inStock: true },
+      { name: 'Royal Maroon', hex: '#800000', inStock: true }
+    ];
+
     let dbDoc: any = null;
 
     if (mongoose.connection.readyState === 1) {
       dbDoc = await Product.create({
         name: name || 'New Atelier Suit',
         tag: tag || 'suits',
-        price: price ? parseFloat(price) : 18500,
+        price: parsedPrice,
+        originalPrice: parsedOriginalPrice,
+        colors: parsedColors,
         stock: stock ? parseInt(stock) : 10,
         images: images && images.length > 0 ? images : ["/assets/1540aab590cd7d478ad01cdb1a615d469ef2a808.png"],
+        badge: badge || 'New',
         description: description || 'Handcrafted luxury apparel.',
         materials: materials || 'Pure Lawn Cotton & Silk. Dry clean only.',
         shipping: shipping || 'Free delivery on orders over PKR 5,000. 7-day return policy.',
@@ -199,15 +226,98 @@ export const updateProduct = async (req: AuthRequest, res: Response, next: NextF
   try {
     await ensureDbConnected();
     const { id } = req.params;
-    let product: any = null;
-    if (mongoose.connection.readyState === 1 && mongoose.Types.ObjectId.isValid(id)) {
-      product = await Product.findByIdAndUpdate(id, req.body, { new: true })
-        .maxTimeMS(5000)
-        .catch(() => null);
-    }
-    if (product) return sendResponse(res, 200, 'Product updated successfully', product);
 
-    const memItem = productStore.update(id, req.body);
+    const updateData: any = { ...req.body };
+    delete updateData._id;
+    delete updateData.id;
+
+    // 1. Sanitize & cast category
+    if (updateData.category !== undefined) {
+      if (typeof updateData.category === 'string' && mongoose.Types.ObjectId.isValid(updateData.category)) {
+        updateData.category = new mongoose.Types.ObjectId(updateData.category);
+      } else {
+        const catStr = String(updateData.category || '').toLowerCase();
+        const targetSlug = updateData.tag || (catStr === '1' ? 'suits' : catStr === '2' ? 'coords' : catStr === '3' ? 'party' : catStr === '4' ? 'hampers' : catStr);
+        let catDoc: any = null;
+        if (mongoose.connection.readyState === 1) {
+          catDoc = await Category.findOne({ slug: targetSlug }).maxTimeMS(5000).catch(() => null);
+        }
+        if (catDoc) {
+          updateData.category = catDoc._id;
+        } else {
+          delete updateData.category;
+        }
+      }
+    }
+
+    // 2. Sanitize seller
+    if (updateData.seller !== undefined) {
+      if (typeof updateData.seller === 'string' && mongoose.Types.ObjectId.isValid(updateData.seller)) {
+        updateData.seller = new mongoose.Types.ObjectId(updateData.seller);
+      } else if (typeof updateData.seller === 'object' && updateData.seller?._id && mongoose.Types.ObjectId.isValid(updateData.seller._id)) {
+        updateData.seller = new mongoose.Types.ObjectId(updateData.seller._id);
+      } else {
+        delete updateData.seller;
+      }
+    }
+
+    // 3. Convert numbers safely
+    if (updateData.price !== undefined) {
+      updateData.price = typeof updateData.price === 'number' ? updateData.price : (parseFloat(String(updateData.price).replace(/[^\d.]/g, '')) || 18500);
+    }
+    if (updateData.originalPrice !== undefined) {
+      updateData.originalPrice = typeof updateData.originalPrice === 'number' ? updateData.originalPrice : (parseFloat(String(updateData.originalPrice).replace(/[^\d.]/g, '')) || 24500);
+    }
+    if (updateData.stock !== undefined) {
+      updateData.stock = typeof updateData.stock === 'number' ? updateData.stock : (parseInt(String(updateData.stock)) || 10);
+    }
+
+    // 4. Handle status mapping (is_active boolean / status string)
+    if (updateData.is_active !== undefined) {
+      updateData.status = updateData.is_active ? 'APPROVED' : 'HIDDEN';
+    }
+
+    let product: any = null;
+
+    if (mongoose.connection.readyState === 1 && mongoose.Types.ObjectId.isValid(id)) {
+      product = await Product.findByIdAndUpdate(id, { $set: updateData }, { new: true, runValidators: false })
+        .maxTimeMS(5000)
+        .catch(err => {
+          console.error("MongoDB findByIdAndUpdate Error:", err.message);
+          return null;
+        });
+
+      // If product was not in Mongo, upsert it by ObjectId
+      if (!product) {
+        product = await Product.findByIdAndUpdate(
+          id,
+          {
+            $set: {
+              ...updateData,
+              _id: new mongoose.Types.ObjectId(id),
+              name: updateData.name || 'Updated Product',
+              price: updateData.price || 18500,
+              stock: updateData.stock !== undefined ? updateData.stock : 10,
+              tag: updateData.tag || 'suits',
+              status: updateData.status || 'APPROVED'
+            }
+          },
+          { new: true, upsert: true, runValidators: false }
+        ).catch(err => {
+          console.error("MongoDB Upsert Error:", err.message);
+          return null;
+        });
+      }
+    }
+
+    // Also update in-memory store if present
+    const memItem = productStore.update(id, updateData);
+
+    if (product) {
+      const sanitized = sanitizeProductImages([product], req);
+      return sendResponse(res, 200, 'Product updated successfully', sanitized[0] || product);
+    }
+
     if (memItem) {
       return sendResponse(res, 200, 'Product updated successfully', memItem);
     }

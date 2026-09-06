@@ -1,6 +1,12 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-export type ProductStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type ProductStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'HIDDEN' | 'ACTIVE';
+
+export interface ColorOption {
+  name: string;
+  hex: string;
+  inStock?: boolean;
+}
 
 export interface IProduct extends Document {
   name: string;
@@ -8,6 +14,8 @@ export interface IProduct extends Document {
   category?: mongoose.Types.ObjectId;
   tag: string;
   price: number;
+  originalPrice?: number;
+  colors?: ColorOption[];
   stock: number;
   images: string[];
   badge?: string;
@@ -26,10 +34,18 @@ const ProductSchema: Schema = new Schema(
     category: { type: Schema.Types.ObjectId, ref: 'Category', required: false, index: true },
     tag: { type: String, required: true, default: 'suits', index: true },
     price: { type: Number, required: true, min: 0 },
+    originalPrice: { type: Number, required: false, min: 0 },
+    colors: [
+      {
+        name: { type: String, required: true },
+        hex: { type: String, required: true },
+        inStock: { type: Boolean, default: true }
+      }
+    ],
     stock: { type: Number, required: true, default: 1 },
     images: [{ type: String }],
     badge: { type: String, trim: true },
-    status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED'], default: 'APPROVED', index: true },
+    status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED', 'HIDDEN', 'ACTIVE'], default: 'APPROVED', index: true },
     description: { type: String },
     materials: { type: String },
     shipping: { type: String }
