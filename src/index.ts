@@ -63,20 +63,18 @@ app.get('/api/health', (req, res) => {
 // Attach Global Error Handling Middleware
 app.use(globalErrorHandler);
 
-// Connect to MongoDB asynchronously in background
+// Connect to MongoDB asynchronously
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
   try {
-    await mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 2000 });
+    await mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 10000 });
     console.log('✅ Connected to MongoDB Database');
     await seedInitialData();
-  } catch (err) {
-    console.log('ℹ️ Running in fast memory mode (MongoDB offline/connecting).');
+  } catch (err: any) {
+    console.log('⚠️ MongoDB connection error:', err.message);
   }
 };
 
-// Seed in-memory store immediately on startup for sub-millisecond responses
-seedInitialData();
 connectDB();
 
 // Start local server if not running on Vercel
