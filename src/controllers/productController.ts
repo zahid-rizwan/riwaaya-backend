@@ -10,6 +10,13 @@ import { ApiError } from '../utils/ApiError';
 import { ensureDbConnected } from '../config/db';
 import { seedInitialData } from '../seed';
 
+let ramProductsCache: { data: any[]; timestamp: number } | null = null;
+const CACHE_TTL_MS = 30000;
+
+export const invalidateRamCache = () => {
+  ramProductsCache = null;
+};
+
 const sanitizeProductImages = (products: any[], req: Request) => {
   const host = `${req.protocol}://${req.get('host')}`;
   return products.map(p => {
@@ -37,9 +44,16 @@ const sanitizeProductImages = (products: any[], req: Request) => {
 
 export const getProducts = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const isConnected = await ensureDbConnected();
     const { tag, search, status } = req.query;
-    
+    const isSimpleQuery = (!tag || tag === 'all') && !search && (!status || status === 'APPROVED' || status === 'PENDING');
+
+    if (isSimpleQuery && ramProductsCache && (Date.now() - ramProductsCache.timestamp < CACHE_TTL_MS)) {
+      res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
+      const sanitized = sanitizeProductImages(ramProductsCache.data, req);
+      return sendResponse(res, 200, 'Products fetched successfully (RAM Fast Cache)', sanitized, { count: sanitized.length });
+    }
+
+    const isConnected = await ensureDbConnected();
     const filterQuery: any = {};
     if (tag && tag !== 'all') {
       filterQuery.tag = tag;
@@ -91,8 +105,12 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
       }
     }
 
+    if (isSimpleQuery && products.length > 0) {
+      ramProductsCache = { data: products, timestamp: Date.now() };
+    }
+
     // Set Edge CDN caching headers for ultra-fast response
-    res.setHeader('Cache-Control', 'public, s-maxage=15, stale-while-revalidate=120');
+    res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
 
     const sanitized = sanitizeProductImages(products, req);
     return sendResponse(res, 200, 'Products fetched successfully', sanitized, { count: sanitized.length });
@@ -221,6 +239,7 @@ export const createProduct = async (req: AuthRequest, res: Response, next: NextF
     };
 
     productStore.add(newProductItem);
+    invalidateRamCache();
     return sendResponse(res, 201, 'Product created successfully', dbDoc || newProductItem);
   } catch (error) {
     return next(error);
@@ -337,6 +356,7 @@ export const updateProduct = async (req: AuthRequest, res: Response, next: NextF
 
     // Also update in-memory store if present
     const memItem = productStore.update(id, updateData);
+    invalidateRamCache();
 
     if (product) {
       const sanitized = sanitizeProductImages([product], req);
@@ -361,6 +381,7 @@ export const deleteProduct = async (req: AuthRequest, res: Response, next: NextF
       await Product.findByIdAndDelete(id).maxTimeMS(5000).catch(() => null);
     }
     productStore.remove(id);
+    invalidateRamCache();
     return sendResponse(res, 200, 'Product removed successfully', { id });
   } catch (error) {
     return next(error);
