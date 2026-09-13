@@ -12,7 +12,7 @@ import { ensureDbConnected } from '../config/db';
 const sanitizeProductImages = (products: any[], req: Request) => {
   const host = `${req.protocol}://${req.get('host')}`;
   return products.map(p => {
-    const item = p.toObject ? p.toObject() : { ...p };
+    const item = (p && typeof p.toObject === 'function') ? p.toObject() : { ...p };
     const priceNum = typeof item.price === 'number' ? item.price : parseFloat(String(item.price).replace(/[^\d.]/g, '')) || 18500;
     const origPriceNum = item.originalPrice ? (typeof item.originalPrice === 'number' ? item.originalPrice : parseFloat(String(item.originalPrice).replace(/[^\d.]/g, ''))) : Math.round(priceNum * 1.25);
     const discountPercent = origPriceNum > priceNum ? Math.round(((origPriceNum - priceNum) / origPriceNum) * 100) : 0;
@@ -60,6 +60,7 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
         .populate('seller', 'shopName name email')
         .populate('category', 'name slug')
         .sort({ createdAt: -1 })
+        .lean()
         .maxTimeMS(5000);
     } else {
       let storeItems = productStore.getAll();
@@ -73,6 +74,9 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
       }
       products = storeItems;
     }
+
+    // Set Edge CDN caching headers for fast Vercel responses
+    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
 
     const sanitized = sanitizeProductImages(products, req);
     return sendResponse(res, 200, 'Products fetched successfully', sanitized, { count: sanitized.length });
@@ -90,16 +94,20 @@ export const getProductById = async (req: Request, res: Response, next: NextFunc
       dbProduct = await Product.findById(id)
         .populate('seller', 'shopName name email phone shopDescription')
         .populate('category', 'name slug description')
+        .lean()
         .maxTimeMS(5000)
         .catch(() => null);
     }
 
     if (dbProduct) {
-      return sendResponse(res, 200, 'Product details fetched', dbProduct);
+      res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+      const sanitized = sanitizeProductImages([dbProduct], req)[0];
+      return sendResponse(res, 200, 'Product details fetched', sanitized || dbProduct);
     }
 
     const memoryProduct = productStore.findById(id);
     if (memoryProduct) {
+      res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
       return sendResponse(res, 200, 'Product details fetched', memoryProduct);
     }
 

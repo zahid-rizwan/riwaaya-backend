@@ -1,25 +1,58 @@
 import mongoose from 'mongoose';
 
-export const ensureDbConnected = async (): Promise<boolean> => {
-  const state = mongoose.connection.readyState as number;
-  if (state === 1) return true;
+interface MongooseCache {
+  conn: typeof mongoose | null;
+  promise: Promise<typeof mongoose> | null;
+}
 
-  if (state === 2) {
-    let count = 0;
-    while ((mongoose.connection.readyState as number) !== 1 && count < 30) {
-      await new Promise(res => setTimeout(res, 200));
-      count++;
+declare global {
+  var mongooseCache: MongooseCache | undefined;
+}
+
+let cached: MongooseCache = global.mongooseCache || { conn: null, promise: null };
+if (!global.mongooseCache) {
+  global.mongooseCache = cached;
+}
+
+export const ensureDbConnected = async (): Promise<boolean> => {
+  if ((mongoose.connection.readyState as number) === 1) {
+    return true;
+  }
+
+  if (cached.promise) {
+    try {
+      await cached.promise;
+      return (mongoose.connection.readyState as number) === 1;
+    } catch {
+      cached.promise = null;
     }
-    return (mongoose.connection.readyState as number) === 1;
   }
 
   const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/riwaaya_threads';
+
+  cached.promise = mongoose
+    .connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 10000,
+      maxPoolSize: 10,
+      minPoolSize: 1,
+      socketTimeoutMS: 45000
+    })
+    .then(m => {
+      console.log('✅ Connected to MongoDB Database');
+      return m;
+    })
+    .catch(err => {
+      cached.promise = null;
+      console.error('❌ MongoDB connection error:', err.message);
+      throw err;
+    });
+
   try {
-    await mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 10000 });
-    console.log('✅ Connected to MongoDB Database');
+    await cached.promise;
     return true;
-  } catch (err: any) {
-    console.error('❌ MongoDB connection error:', err.message);
+  } catch {
     return false;
   }
 };
+

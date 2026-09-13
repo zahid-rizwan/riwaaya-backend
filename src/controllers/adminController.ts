@@ -106,6 +106,8 @@ export const approveProduct = async (req: Request, res: Response, next: NextFunc
   }
 };
 
+import { seedInitialData } from '../seed';
+
 export const getAllOrders = async (req: Request, res: Response, next: NextFunction) => {
   try {
     let orders: any[] = [];
@@ -118,6 +120,15 @@ export const getAllOrders = async (req: Request, res: Response, next: NextFuncti
     }
 
     return sendResponse(res, 200, 'Orders fetched successfully', orders);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const triggerSeed = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await seedInitialData();
+    return sendResponse(res, 200, 'Seeding completed successfully');
   } catch (error) {
     return next(error);
   }
