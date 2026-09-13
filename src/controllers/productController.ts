@@ -59,17 +59,19 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
     if (isConnected || mongoose.connection.readyState >= 1) {
       try {
         products = await Product.find(filterQuery)
+          .select('name tag price originalPrice colors stock images badge status description materials shipping createdAt seller category')
           .populate('seller', 'shopName name email')
           .populate('category', 'name slug')
           .sort({ createdAt: -1 })
           .lean()
-          .maxTimeMS(5000);
+          .maxTimeMS(2500);
       } catch (err: any) {
         console.error('Error populating Product.find, falling back to raw find:', err?.message || err);
         products = await Product.find(filterQuery)
+          .select('name tag price originalPrice colors stock images badge status description materials shipping createdAt seller category')
           .sort({ createdAt: -1 })
           .lean()
-          .maxTimeMS(5000)
+          .maxTimeMS(2500)
           .catch(() => []);
       }
     }
@@ -89,8 +91,8 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
       }
     }
 
-    // Set Edge CDN caching headers for fast Vercel responses
-    res.setHeader('Cache-Control', 'public, s-maxage=5, stale-while-revalidate=30');
+    // Set Edge CDN caching headers for ultra-fast response
+    res.setHeader('Cache-Control', 'public, s-maxage=15, stale-while-revalidate=120');
 
     const sanitized = sanitizeProductImages(products, req);
     return sendResponse(res, 200, 'Products fetched successfully', sanitized, { count: sanitized.length });

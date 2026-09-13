@@ -15,13 +15,18 @@ if (!global.mongooseCache) {
 }
 
 export const ensureDbConnected = async (): Promise<boolean> => {
+  if (cached.conn && (mongoose.connection.readyState as number) === 1) {
+    return true;
+  }
+
   if ((mongoose.connection.readyState as number) === 1) {
+    cached.conn = mongoose;
     return true;
   }
 
   if (cached.promise) {
     try {
-      await cached.promise;
+      cached.conn = await cached.promise;
       return (mongoose.connection.readyState as number) === 1;
     } catch {
       cached.promise = null;
@@ -33,14 +38,15 @@ export const ensureDbConnected = async (): Promise<boolean> => {
   cached.promise = mongoose
     .connect(MONGODB_URI, {
       dbName: process.env.MONGODB_DB_NAME || 'riwaaya_threads',
-      serverSelectionTimeoutMS: 5000,
-      connectTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 2500,
+      connectTimeoutMS: 5000,
       maxPoolSize: 10,
       minPoolSize: 1,
-      socketTimeoutMS: 45000
+      socketTimeoutMS: 30000
     })
     .then(m => {
       console.log('✅ Connected to MongoDB Database');
+      cached.conn = m;
       return m;
     })
     .catch(err => {
@@ -50,7 +56,7 @@ export const ensureDbConnected = async (): Promise<boolean> => {
     });
 
   try {
-    await cached.promise;
+    cached.conn = await cached.promise;
     return true;
   } catch {
     return false;
