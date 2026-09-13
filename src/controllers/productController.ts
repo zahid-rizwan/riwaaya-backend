@@ -8,6 +8,7 @@ import { productStore, ProductItem } from '../store/productStore';
 import { sendResponse } from '../utils/apiResponse';
 import { ApiError } from '../utils/ApiError';
 import { ensureDbConnected } from '../config/db';
+import { seedInitialData } from '../seed';
 
 const sanitizeProductImages = (products: any[], req: Request) => {
   const host = `${req.protocol}://${req.get('host')}`;
@@ -51,7 +52,7 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
     } else if (status) {
       filterQuery.status = status;
     } else {
-      filterQuery.status = { $in: ['APPROVED', 'PENDING'] };
+      filterQuery.status = { $ne: 'HIDDEN' };
     }
 
     let products: any[] = [];
@@ -62,8 +63,10 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
         .sort({ createdAt: -1 })
         .lean()
         .maxTimeMS(5000);
-    } else {
-      let storeItems = productStore.getAll();
+    }
+
+    if (products.length === 0) {
+      let storeItems: any[] = productStore.getAll();
       if (tag && tag !== 'all') storeItems = storeItems.filter(p => p.tag === tag);
       if (search) {
         const q = (search as string).toLowerCase();
@@ -76,7 +79,7 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
     }
 
     // Set Edge CDN caching headers for fast Vercel responses
-    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+    res.setHeader('Cache-Control', 'public, s-maxage=10, stale-while-revalidate=60');
 
     const sanitized = sanitizeProductImages(products, req);
     return sendResponse(res, 200, 'Products fetched successfully', sanitized, { count: sanitized.length });
@@ -122,6 +125,15 @@ export const createProduct = async (req: AuthRequest, res: Response, next: NextF
     await ensureDbConnected();
     const { name, category, tag, price, originalPrice, colors, stock, images, description, materials, shipping, variants, status, badge } = req.body;
 
+    let computedTag = tag || 'suits';
+    if (!tag && category) {
+      const catLower = String(category).toLowerCase();
+      if (catLower.includes('coord') || catLower.includes('kurta')) computedTag = 'coords';
+      else if (catLower.includes('party') || catLower.includes('lehenga') || catLower.includes('saree')) computedTag = 'party';
+      else if (catLower.includes('hamper') || catLower.includes('gift')) computedTag = 'hampers';
+      else computedTag = 'suits';
+    }
+
     let validCategoryObjId: mongoose.Types.ObjectId | undefined = undefined;
     let validSellerObjId: mongoose.Types.ObjectId | undefined = undefined;
 
@@ -129,8 +141,7 @@ export const createProduct = async (req: AuthRequest, res: Response, next: NextF
       if (category && mongoose.Types.ObjectId.isValid(category)) {
         validCategoryObjId = new mongoose.Types.ObjectId(category);
       } else {
-        const targetSlug = tag || (category === '1' ? 'suits' : category === '2' ? 'coords' : category === '3' ? 'party' : category === '4' ? 'hampers' : 'suits');
-        const catDoc = await Category.findOne({ slug: targetSlug }).maxTimeMS(5000).catch(() => null);
+        const catDoc = await Category.findOne({ slug: computedTag }).maxTimeMS(5000).catch(() => null);
         if (catDoc) {
           validCategoryObjId = catDoc._id as mongoose.Types.ObjectId;
         }
@@ -147,8 +158,8 @@ export const createProduct = async (req: AuthRequest, res: Response, next: NextF
     }
 
     const initialStatus = status || 'APPROVED';
-    const parsedPrice = price ? parseFloat(price) : 18500;
-    const parsedOriginalPrice = originalPrice ? parseFloat(originalPrice) : Math.round(parsedPrice * 1.25);
+    const parsedPrice = price ? (typeof price === 'number' ? price : parseFloat(String(price))) : 18500;
+    const parsedOriginalPrice = originalPrice ? (typeof originalPrice === 'number' ? originalPrice : parseFloat(String(originalPrice))) : Math.round(parsedPrice * 1.25);
     const parsedColors = Array.isArray(colors) ? colors : [];
 
     let dbDoc: any = null;
@@ -156,11 +167,11 @@ export const createProduct = async (req: AuthRequest, res: Response, next: NextF
     if (mongoose.connection.readyState === 1) {
       dbDoc = await Product.create({
         name: name || 'New Atelier Suit',
-        tag: tag || 'suits',
+        tag: computedTag,
         price: parsedPrice,
         originalPrice: parsedOriginalPrice,
         colors: parsedColors,
-        stock: stock ? parseInt(stock) : 10,
+        stock: stock ? parseInt(String(stock)) : 10,
         images: images && images.length > 0 ? images : ["/assets/1540aab590cd7d478ad01cdb1a615d469ef2a808.png"],
         badge: badge || 'New',
         description: description || 'Handcrafted luxury apparel.',
@@ -181,17 +192,17 @@ export const createProduct = async (req: AuthRequest, res: Response, next: NextF
       _id: assignedId,
       id: assignedId,
       name: name || 'New Atelier Suit',
-      price: price ? parseFloat(price) : 18500,
-      stock: stock ? parseInt(stock) : 10,
-      tag: tag || 'suits',
-      badge: 'New',
+      price: parsedPrice,
+      stock: stock ? parseInt(String(stock)) : 10,
+      tag: computedTag,
+      badge: badge || 'New',
       images: images && images.length > 0 ? images : ["/assets/1540aab590cd7d478ad01cdb1a615d469ef2a808.png"],
       description: description || 'Handcrafted luxury apparel.',
       materials: materials || 'Pure Lawn Cotton & Silk. Dry clean only.',
       shipping: shipping || 'Free delivery on orders over PKR 5,000. 7-day return policy.',
       status: initialStatus,
       variants: variants && variants.length > 0 ? variants : [
-        { id: `v_${Date.now()}`, sku: `SKU-${Date.now().toString().slice(-4)}`, size: 'M', price: price ? parseFloat(price) : 18500, stock: stock ? parseInt(stock) : 10 }
+        { id: `v_${Date.now()}`, sku: `SKU-${Date.now().toString().slice(-4)}`, size: 'M', price: parsedPrice, stock: stock ? parseInt(String(stock)) : 10 }
       ],
       createdAt: new Date().toISOString()
     };
