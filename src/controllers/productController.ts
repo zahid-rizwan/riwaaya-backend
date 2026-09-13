@@ -37,7 +37,7 @@ const sanitizeProductImages = (products: any[], req: Request) => {
 
 export const getProducts = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    await ensureDbConnected();
+    const isConnected = await ensureDbConnected();
     const { tag, search, status } = req.query;
     
     const filterQuery: any = {};
@@ -56,13 +56,22 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
     }
 
     let products: any[] = [];
-    if (mongoose.connection.readyState === 1) {
-      products = await Product.find(filterQuery)
-        .populate('seller', 'shopName name email')
-        .populate('category', 'name slug')
-        .sort({ createdAt: -1 })
-        .lean()
-        .maxTimeMS(5000);
+    if (isConnected || mongoose.connection.readyState >= 1) {
+      try {
+        products = await Product.find(filterQuery)
+          .populate('seller', 'shopName name email')
+          .populate('category', 'name slug')
+          .sort({ createdAt: -1 })
+          .lean()
+          .maxTimeMS(5000);
+      } catch (err: any) {
+        console.error('Error populating Product.find, falling back to raw find:', err?.message || err);
+        products = await Product.find(filterQuery)
+          .sort({ createdAt: -1 })
+          .lean()
+          .maxTimeMS(5000)
+          .catch(() => []);
+      }
     }
 
     if (products.length === 0) {
@@ -75,11 +84,13 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
       if (status && status !== 'ALL') {
         storeItems = storeItems.filter(p => p.status === status);
       }
-      products = storeItems;
+      if (storeItems.length > 0) {
+        products = storeItems;
+      }
     }
 
     // Set Edge CDN caching headers for fast Vercel responses
-    res.setHeader('Cache-Control', 'public, s-maxage=10, stale-while-revalidate=60');
+    res.setHeader('Cache-Control', 'public, s-maxage=5, stale-while-revalidate=30');
 
     const sanitized = sanitizeProductImages(products, req);
     return sendResponse(res, 200, 'Products fetched successfully', sanitized, { count: sanitized.length });

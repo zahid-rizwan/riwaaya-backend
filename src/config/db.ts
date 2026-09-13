@@ -32,6 +32,7 @@ export const ensureDbConnected = async (): Promise<boolean> => {
 
   cached.promise = mongoose
     .connect(MONGODB_URI, {
+      dbName: process.env.MONGODB_DB_NAME || 'riwaaya_threads',
       serverSelectionTimeoutMS: 5000,
       connectTimeoutMS: 10000,
       maxPoolSize: 10,
