@@ -105,12 +105,22 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
       }
     }
 
+    // Fallback to RAM cache if DB hiccup occurred and RAM cache has data
+    if (products.length === 0 && ramProductsCache && ramProductsCache.data && ramProductsCache.data.length > 0) {
+      products = ramProductsCache.data;
+      if (tag && tag !== 'all') products = products.filter(p => p.tag === tag);
+    }
+
     if (isSimpleQuery && products.length > 0) {
       ramProductsCache = { data: products, timestamp: Date.now() };
     }
 
-    // Set Edge CDN caching headers for ultra-fast response
-    res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
+    // Prevent Edge CDN from caching empty responses!
+    if (products.length === 0) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    } else {
+      res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
+    }
 
     const sanitized = sanitizeProductImages(products, req);
     return sendResponse(res, 200, 'Products fetched successfully', sanitized, { count: sanitized.length });
